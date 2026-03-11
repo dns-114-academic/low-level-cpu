@@ -1,6 +1,6 @@
 # Low-level Programming & CPU Architecture
 
-**Course project** | ENSIBS — Jan.–Apr. 2026 | MASM x86, Logisim
+**Course project** | école d'ingénieurs — Jan.–Apr. 2026 | MASM x86, Logisim
 
 ## Overview
 
