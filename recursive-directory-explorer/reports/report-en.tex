@@ -1,0 +1,298 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+
+\geometry{margin=2.5cm}
+
+\definecolor{codebg}{rgb}{0.95,0.95,0.95}
+\definecolor{keyword}{rgb}{0.0,0.0,0.6}
+\definecolor{comment}{rgb}{0.3,0.5,0.3}
+\definecolor{string}{rgb}{0.6,0.0,0.0}
+
+\lstdefinelanguage{MASM}{
+  morekeywords={mov,push,pop,call,ret,sub,add,lea,cmp,jz,jnz,jmp,je,jne,jge,
+                and,or,inc,dec,test,xor,db,dd,dw,dup,offset,ptr,byte,dword,
+                .386,.model,.data,.code,.data?,flat,stdcall,casemap,none,
+                include,includelib,end,start,proc,endp},
+  sensitive=false,
+  morecomment=[l]{;},
+  morestring=[b]",
+  morestring=[b]',
+}
+
+\lstset{
+  language=MASM,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{keyword}\bfseries,
+  commentstyle=\color{comment}\itshape,
+  stringstyle=\color{string},
+  backgroundcolor=\color{codebg},
+  frame=single,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  xleftmargin=1.5em,
+  framexleftmargin=1.5em,
+  tabsize=4,
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{x86 32-bit Assembly -- MASM32}
+\lhead{Project Report}
+\cfoot{\thepage}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue,
+}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+  {\LARGE\bfseries Project Report\par}
+  \vspace{0.5cm}
+  {\large x86 32-bit Assembly -- MASM32\par}
+  \vspace{0.3cm}
+  {\large Recursive Directory Explorer (CLI and GUI)\par}
+  \vspace{2cm}
+  {\normalsize O. Denis\par}
+  \vspace{0.3cm}
+  {\normalsize [University]\par}
+  \vspace{0.3cm}
+  {\normalsize February 2026\par}
+  \vfill
+\end{titlepage}
+
+% ---------------------------------------------------------------
+
+
+% ---------------------------------------------------------------
+\section{Introduction}
+
+This project is a recursive directory explorer written in x86 32-bit assembly using MASM32. Two versions were implemented: a Command-Line Interface (CLI) and a Windows Graphical User Interface (GUI). Both implementations traverse a directory tree iteratively using a static stack, avoiding native language recursion (no recursive function calls).
+
+% ---------------------------------------------------------------
+\section{CLI Version}
+
+\subsection{Architecture}
+
+\subsubsection{\texttt{.data} segment (initialised data)}
+
+The \texttt{.data} segment holds the strings needed for display and file-search operations:
+
+\begin{itemize}
+  \item \texttt{adr1B}: prompt shown to the user (\texttt{"Path: "})
+  \item \texttt{msgDirectory}: header printed before each visited directory
+  \item \texttt{searchPattern}: the \texttt{\textbackslash{}*.*} wildcard pattern passed to \texttt{FindFirstFileA}
+\end{itemize}
+
+\subsubsection{\texttt{.data?} segment (uninitialised data)}
+
+\begin{itemize}
+  \item \texttt{path}: user-entered path (260 bytes: 256 + drive letter + colon + slash + null)
+  \item \texttt{searchPath}: path concatenated with \texttt{\textbackslash{}*.*} for \texttt{FindFirstFileA}
+  \item \texttt{findData}: \texttt{WIN32\_FIND\_DATAA} structure (320 bytes)
+  \item \texttt{stackPaths}: static path stack (60 × 260 bytes = 15\,600 bytes)
+  \item \texttt{stackPtr}: stack top pointer (index of the next free slot)
+  \item \texttt{currentPath}, \texttt{tempBuffer}: working buffers for path concatenation
+\end{itemize}
+
+Using a static stack prevents call-stack overflows. The chosen maximum depth of 60 levels covers the vast majority of real Windows directory trees.
+
+\subsection{How it works}
+
+\subsubsection{Acquiring console handles}
+
+\begin{lstlisting}
+push -11          ; STD_OUTPUT_HANDLE constant
+call GetStdHandle ; kernel32.dll -- returns handle in eax
+mov stdOut, eax   ; save stdout handle
+
+push -10          ; STD_INPUT_HANDLE constant
+call GetStdHandle
+mov stdIn, eax    ; save stdin handle
+\end{lstlisting}
+
+\texttt{GetStdHandle} is called with constant \texttt{-11} (stdout) and \texttt{-10} (stdin). The returned value in \texttt{eax} is saved to memory. All display (\texttt{WriteFile}) and read (\texttt{ReadFile}) operations require a valid handle.
+
+\subsubsection{Reading and cleaning the path}
+
+After \texttt{ReadFile} reads the path, the trailing 2 bytes (CR LF) are stripped:
+
+\begin{lstlisting}
+mov ecx, bytesRead           ; byte count returned by ReadFile
+sub ecx, 2                   ; remove CR LF
+mov byte ptr [path + ecx], 0 ; null-terminate the string
+mov pathLength, ecx          ; save effective length
+\end{lstlisting}
+
+\subsection{Main loop}
+
+The \texttt{boucle\_stack} loop pops one path, lists the contents of the corresponding directory, pushes any subdirectories found, and repeats until the stack is empty.
+
+\begin{lstlisting}
+boucle_stack:
+    mov eax, stackPtr
+    cmp eax, 0            ; stack empty?
+    jz fin_recursion      ; yes -- all directories processed
+
+    sub stackPtr, 260     ; pop: move pointer back one slot
+    mov eax, stackPtr
+    lea esi, [stackPaths + eax]
+    mov edi, offset currentPath
+    mov ecx, 260          ; copy at most 260 bytes
+    ; ... (byte-by-byte copy loop)
+    jmp boucle_stack
+\end{lstlisting}
+
+\subsection{Subdirectory detection}
+
+The \texttt{FILE\_ATTRIBUTE\_DIRECTORY} flag (bit 4 = \texttt{0x10}) is tested in the first DWORD of \texttt{WIN32\_FIND\_DATAA}:
+
+\begin{lstlisting}
+mov eax, dword ptr findData ; dwFileAttributes (offset 0)
+and eax, 10h                ; mask directory bit
+jz pas_dossier              ; flag absent => regular file
+\end{lstlisting}
+
+\textbf{Note:} reading via the symbolic label \texttt{dword ptr findData} (rather than a compile-time resolved direct address) was necessary to prevent corruption of the generated \texttt{.obj} file during early testing.
+
+\subsection{Filtering \texttt{.} and \texttt{..}}
+
+The \texttt{.} (current directory) and \texttt{..} (parent directory) entries are always present in every Windows directory. Without filtering, the loop would be infinite:
+
+\begin{lstlisting}
+lea esi, [findData+44]   ; cFileName at offset 44 in WIN32_FIND_DATAA
+mov al, byte ptr [esi]
+cmp al, '.'
+jne pas_point            ; first char != '.' -- process normally
+
+mov al, byte ptr [esi+1]
+cmp al, 0                ; is it just "." ?
+je fichier_suivant       ; skip
+
+cmp al, '.'
+jne pas_point
+
+mov al, byte ptr [esi+2]
+cmp al, 0                ; is it just ".." ?
+je fichier_suivant       ; skip
+\end{lstlisting}
+
+% ---------------------------------------------------------------
+\section{GUI Version}
+
+\subsection{Architecture}
+
+\subsubsection{\texttt{.data} segment (initialised data)}
+
+\begin{itemize}
+  \item \texttt{szClassName}: window class name (\texttt{"FileExplorerApp"})
+  \item \texttt{szAppName}: application title (\texttt{"Recursive File Explorer"})
+  \item \texttt{szEditClass}, \texttt{szButtonClass}, \texttt{szStaticClass}: Windows control class names
+  \item \texttt{szOKButton}: button label (\texttt{"Browse"})
+  \item \texttt{szDefaultInput}: default path pre-filled in the TextBox (\texttt{"C:\textbackslash{}Users\textbackslash{}user"})
+  \item \texttt{searchPattern}: wildcard \texttt{\textbackslash{}*.*} for file search
+\end{itemize}
+
+\subsubsection{\texttt{.data?} segment (uninitialised data)}
+
+\begin{itemize}
+  \item \texttt{hInstance}, \texttt{hWnd}, \texttt{hEdit}, \texttt{hButton}, \texttt{hResult}: handles for the window and its controls
+  \item \texttt{path}: user-entered path (260 bytes)
+  \item \texttt{searchPath}: path + \texttt{\textbackslash{}*.*} (520 bytes)
+  \item \texttt{findData}: \texttt{WIN32\_FIND\_DATAA} structure (320 bytes)
+  \item \texttt{stackPaths}: path stack (60 × 260 = 15\,600 bytes)
+  \item \texttt{stackDepths}: depth stack (60 × 4 = 240 bytes)
+  \item \texttt{resultBuffer}: 32\,000-byte buffer that accumulates all results
+  \item \texttt{resultPtr}: current write position within \texttt{resultBuffer}
+\end{itemize}
+
+\subsection{General operation}
+
+Unlike the CLI version, which reads and writes directly to the console, the GUI version waits for the user to type a path in the dedicated text box and click \textbf{Browse}. The recursive search then works identically to the CLI, except for output: all results are accumulated in \texttt{resultBuffer} and sent to the results area in a single \texttt{SetWindowTextA} call.
+
+\subsection{Initialisation}
+
+On startup, \texttt{GetModuleHandleA} retrieves the current instance handle. The window class is registered via \texttt{RegisterClassExA} with the \texttt{WNDCLASSEX} structure filled in manually (style \texttt{CS\_HREDRAW|CS\_VREDRAW}, arrow cursor, \texttt{COLOR\_BTNFACE} background). The main window (900 × 600 pixels) is created with \texttt{CreateWindowExA} and made visible with \texttt{ShowWindow}.
+
+\subsection{Control creation -- \texttt{CreateControls}}
+
+When the \texttt{WM\_CREATE} message is received, \texttt{WndProc} calls \texttt{CreateControls}, which creates three controls:
+
+\begin{itemize}
+  \item \textbf{Path input TextBox (ID 1000)}: text entry for the directory path; the default path is injected immediately via \texttt{SetWindowTextA}.
+  \item \textbf{"Browse" button (ID 1001)}: triggers the recursive scan.
+  \item \textbf{Results area (ID 1002)}: multiline read-only TextBox with vertical and horizontal scroll bars.
+\end{itemize}
+
+All controls are created with \texttt{WS\_CHILD | WS\_VISIBLE} to be parented to the main window and immediately visible.
+
+\subsection{Triggering the scan -- \texttt{ScanAndDisplay}}
+
+On a button click, \texttt{WndProc} receives \texttt{WM\_COMMAND}. When the control ID is \texttt{1001}, \texttt{ScanAndDisplay} is called. This function:
+
+\begin{enumerate}
+  \item Reads the TextBox content with \texttt{GetWindowTextA} (max 260 characters).
+  \item Resets the control variables (\texttt{resultPtr}, \texttt{fileCounter}, \texttt{currentDepth}) and both stacks.
+  \item Writes the root path header via \texttt{AddRootHeader}.
+  \item Pushes the initial path at depth 0.
+  \item Runs the main loop, which is identical to the CLI version.
+\end{enumerate}
+
+\subsection{Displaying results -- \texttt{AddFileNameToResult} / \texttt{AddRootHeader}}
+
+\texttt{AddFileNameToResult} writes into \texttt{resultBuffer} using \texttt{resultPtr} as its cursor. It first inserts as many TAB characters (ASCII 9) as the value of \texttt{currentDepth}, producing hierarchical indentation. The filename (\texttt{cFileName} at offset 44 in \texttt{WIN32\_FIND\_DATAA}) is then copied byte-by-byte, followed by a CR LF newline.
+
+Once the recursion is complete, \texttt{SetWindowTextA} sends the entire \texttt{resultBuffer} to the results area in one call. This contrasts with the CLI version, which writes line-by-line via \texttt{WriteFile}.
+
+% ---------------------------------------------------------------
+\section{CLI vs GUI Comparison}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Aspect} & \textbf{CLI} & \textbf{GUI} \\
+\midrule
+Path input           & \texttt{ReadFile} (stdin)       & \texttt{GetWindowTextA} (TextBox) \\
+Result display       & \texttt{WriteFile} line-by-line & \texttt{SetWindowTextA} single call \\
+Depth tracking       & None (no indentation)           & Yes (\texttt{stackDepths} stack) \\
+Result buffer        & None (direct console output)    & \texttt{resultBuffer} 32\,000 bytes \\
+Linker subsystem     & \texttt{CONSOLE}                & \texttt{WINDOWS} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ---------------------------------------------------------------
+\section{Challenges encountered}
+
+\begin{enumerate}
+  \item \textbf{\texttt{.obj} file corruption}: in early iterations, accessing \texttt{dwFileAttributes} via a compile-time direct address caused the generated object file to disappear. The fix was to use the symbolic address \texttt{dword ptr findData}.
+
+  \item \textbf{Infinite loop on \texttt{.} and \texttt{..}}: without explicit filtering of these two entries, the stack would overflow immediately. The double-character test resolved the issue.
+
+  \item \textbf{Backslash handling}: when building the search path, a check was required to determine whether the user-supplied path already ended with \texttt{\textbackslash} before appending one, to avoid malformed patterns (\texttt{C:\textbackslash{}\textbackslash{}*.*}).
+
+  \item \textbf{Result buffer limit (GUI)}: \texttt{resultBuffer} is sized at 32\,000 bytes. Guard comparisons (\texttt{cmp resultPtr, 31800}) prevent writes beyond the buffer boundary.
+\end{enumerate}
+
+% ---------------------------------------------------------------
+\section{Conclusion}
+
+This project provided hands-on experience with x86 32-bit Windows assembly programming by interacting directly with the Win32 API. Both versions (CLI and GUI) demonstrate how the same recursive traversal algorithm can be adapted to two different interface paradigms while sharing the same iterative stack structure. The GUI version additionally introduces depth tracking for hierarchical visual indentation of the results.
+
+\end{document}
