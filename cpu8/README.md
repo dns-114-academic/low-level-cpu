@@ -82,4 +82,4 @@ cpu8/
 ## Rapport
 
 Le rapport complet détaille chaque sous-circuit, son interface, son fonctionnement et ses tests de vérification.  
-→ `rapport_cpu8.pdf` (français) | `en/rapport_cpu8_en.md` (English)
+→ `rapport_cpu8.pdf` (Français) | `en/rapport_cpu8_en.md` (English)
