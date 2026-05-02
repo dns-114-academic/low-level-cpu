@@ -1,11 +1,11 @@
 # x86 Assembly & Digital Logic Projects — MASM32 / Logisim
 
-This repository contains two independent projects built in x86 32-bit assembly (MASM32) and digital logic simulation (Logisim):
+This repository contains two independent projects: one built in x86 32-bit assembly (MASM32) and one in digital logic simulation (Logisim Evolution).
 
-1. **Recursive Directory Explorer** — a CLI and GUI application that traverses a Windows directory tree
-2. **Mini Microprocessor** *(coming soon)* — a simple microprocessor designed and simulated in Logisim
+- **Project 1 — Recursive Directory Explorer** — a CLI and GUI application that traverses a Windows directory tree
+- **Project 2 — CPU 8 bits** — 8-bit processor designed and simulated in Logisim Evolution
 
----
+***
 
 ## Directory tree
 
@@ -13,28 +13,39 @@ This repository contains two independent projects built in x86 32-bit assembly (
 .
 ├── recursive-directory-explorer/
 │   ├── src/
-│   │   ├── main.asm        # CLI version — console subsystem
-│   │   ├── gui.asm         # GUI version — Windows subsystem
-│   │   ├── build_cli.bat   # Build script for main.asm
-│   │   └── build_gui.bat   # Build script for gui.asm
+│   │   ├── main.asm            # CLI version — console subsystem
+│   │   ├── gui.asm             # GUI version — Windows subsystem
+│   │   ├── build_cli.bat       # Build script for main.asm
+│   │   └── build_gui.bat       # Build script for gui.asm
 │   └── reports/
-│       ├── rapport_fr.pdf  # Project report (French)
-│       ├── report_en.pdf   # Project report (English)
-│       ├── rapport_fr.tex  # LaTeX source (French)
-│       └── report_en.tex   # LaTeX source (English)
-├── mini-microprocessor/    # Logisim project (coming soon)
-│   └── ...
+│       ├── rapport_fr.pdf      # Project report (French)
+│       ├── report_en.pdf       # Project report (English)
+│       ├── rapport_fr.tex      # LaTeX source (French)
+│       └── report_en.tex       # LaTeX source (English)
+├── cpu8/
+│   ├── cpu8.circ               # Main Logisim file (17 sub-circuits)
+│   ├── rapport_cpu8.pdf        # Project report (French)
+│   ├── tests/
+│   │   ├── _README.md
+│   │   ├── rom_etape7.hex
+│   │   ├── rom_etape8_sans_jump.hex
+│   │   ├── rom_etape9_avec_jump.hex
+│   │   ├── ram_etape8_init.hex
+│   │   └── ram_etape9_init.hex
+│   └── en/
+│       ├── README.md           # English version of the cpu8 README
+│       └── rapport_cpu8_en.md  # Project report (English)
 └── README.md
 ```
 
----
+***
 
 ## Project 1 — Recursive Directory Explorer
 
 ### Components
 
 | File | Version | Description |
-|---|---|---|
+|------|---------|-------------|
 | `main.asm` | CLI | Reads a path from stdin, recursively lists all entries to stdout |
 | `gui.asm` | GUI | Win32 window with a TextBox, a Browse button, and a read-only results area |
 | `build_cli.bat` | — | Assembles and links `main.asm` with `/SUBSYSTEM:CONSOLE` |
@@ -50,22 +61,28 @@ No Python, no third-party libraries, no runtime other than the standard Win32 AP
 ### How to build
 
 **CLI version**
+
 ```bat
 cd recursive-directory-explorer/src
 build_cli.bat
 ```
+
 Produces `main.exe` via:
+
 ```bat
 c:\masm32\bin\ml /c /Zd /coff main.asm
 c:\masm32\bin\Link /SUBSYSTEM:CONSOLE main.obj
 ```
 
 **GUI version**
+
 ```bat
 cd recursive-directory-explorer/src
 build_gui.bat
 ```
+
 Produces `gui.exe` via:
+
 ```bat
 c:\masm32\bin\ml /c /Zd /coff gui.asm
 c:\masm32\bin\Link /SUBSYSTEM:WINDOWS gui.obj
@@ -74,10 +91,12 @@ c:\masm32\bin\Link /SUBSYSTEM:WINDOWS gui.obj
 ### How to run
 
 **CLI**
+
 ```
 main.exe
 Path: C:\Windows\System32
 ```
+
 Prints a header for each directory visited, followed by all entries within it.
 
 **GUI** — Launch `gui.exe`. A 900 × 600 window appears with a path input, a Browse button, and a scrollable results area showing the directory tree indented by depth level (one TAB per level).
@@ -92,19 +111,36 @@ Both versions share the same core algorithm: an **iterative depth-first traversa
 - **Batch display (GUI)** — results accumulate in a 32 000-byte `resultBuffer`, flushed in one `SetWindowTextA` call.
 - **Depth stack (GUI only)** — `stackDepths` tracks the depth of each pushed path to drive hierarchical TAB indentation.
 
----
+***
 
-## Project 2 — Mini Microprocessor *(Logisim)*
+## Project 2 — CPU 8 bits (Logisim Evolution)
 
-> Work in progress — files will be added to `mini-microprocessor/`.
+**Year:** 2025-2026 | **Authors:** EB -  DO
 
-A minimal microprocessor designed from scratch in [Logisim](http://www.cburch.com/logisim/). Details on architecture, instruction set, and usage will be documented here once the project is complete.
+An 8-bit processor built from scratch in [Logisim Evolution](https://github.com/logisim-evolution/logisim-evolution), constructed step by step from elementary logic gates up to a complete CPU supporting ROM, RAM, and unconditional branching.
 
-### Requirements *(anticipated)*
+The file `cpu8.circ` contains **17 nested circuits**. The instruction set is encoded on **14 bits** and supports:
 
-- **Logisim** or **Logisim Evolution** — download from [github.com/logisim-evolution](https://github.com/logisim-evolution/logisim-evolution)
+- Immediate assignment of a value into a register
+- Register-to-register operations: **ADD, AND, OR, XOR**
+- RAM load (**LOAD**) and store (**STORE**)
+- Unconditional jump (**JUMP**)
 
----
+Registers R0–R3 operate on **8-bit unsigned** data.
+
+### Requirements
+
+- [Logisim Evolution](https://github.com/logisim-evolution/logisim-evolution/releases)
+
+### How to run
+
+1. Open `cpu8/cpu8.circ` in Logisim Evolution.
+2. Load the appropriate `.hex` file into the ROM (and into the RAM for steps 8/9).
+3. Start the simulation with the clock.
+
+> Full architecture details and sub-circuit documentation: [`cpu8/README.md`](cpu8/README.md) (French) | [`cpu8/en/README.md`](cpu8/en/README.md) (English)
+
+***
 
 ## References
 
