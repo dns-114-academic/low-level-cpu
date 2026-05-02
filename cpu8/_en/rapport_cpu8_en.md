@@ -78,8 +78,8 @@ Eight instances of Additionneur_1_bit are chained together in a ripple-carry con
 - **Interface:** A (8 bits), B (8 bits), Rin (1 bit) | Sum (8 bits), Rout (1 bit)
 
 **Test & Verification**
-- 0x05 + 0x03 = 0x08 ✓
-- 0xFF + 0x01 = 0x00 with Rout=1 (overflow) ✓
+- 0x05 + 0x03 = 0x08 
+- 0xFF + 0x01 = 0x00 with Rout=1 (overflow) 
 
 ---
 
@@ -101,10 +101,10 @@ Architecturally, the ALU instantiates all sub-modules simultaneously: ADDITIONNE
 > **Note:** Computing all results in parallel and selecting via a multiplexer (rather than sequential paths) simplifies wiring and eliminates any issue between operations: the output is always stable after combinational propagation (no clock needed).
 
 **Test & Verification**
-- OP=00: A=0x05, B=0x00 → Result=0x05 (ADD) ✓
-- OP=01: A=0x05, B=0x00 → Result=0x00 (AND) ✓
-- OP=10: A=0x00, B=0x05 → Result=0x05 (OR) ✓
-- OP=11: A=0x05, B=0x05 → Result=0x00 (XOR) ✓
+- OP=00: A=0x05, B=0x00 —> Result=0x05 (ADD) 
+- OP=01: A=0x05, B=0x00 —> Result=0x00 (AND) 
+- OP=10: A=0x00, B=0x05 —> Result=0x05 (OR) 
+- OP=11: A=0x05, B=0x05 —> Result=0x00 (XOR) 
 
 ---
 
@@ -118,8 +118,8 @@ A Write Enable (WE) signal controls each flip-flop individually (via the enable 
 - **Interface:** Input (8 bits), Clock (1 bit), WE (1 bit) | Output Q (8 bits)
 
 **Test & Verification**
-- WE=1, Clock, Input=0x2A → Q = 0x2A on next cycle ✓
-- WE=0, Clock, Input=0xFF → Q retains 0x2A ✓
+- WE=1, Clock, Input=0x2A —> Q = 0x2A on next cycle 
+- WE=0, Clock, Input=0xFF —> Q retains 0x2A 
 
 ### 4.2 Banc_4_Registres — 4-Register File
 The register file groups four instances of Registre_8_bits (R0, R1, R2, R3). It manages in parallel: writing to the destination register and simultaneously reading two source registers, which is necessary to feed both ALU operands in the same cycle.
@@ -131,7 +131,7 @@ Writing is orchestrated by 6 four-to-one multiplexers: four muxes generate indiv
 - **Interface:** E (8 bits, data), ADDR_RES (2 bits), ADDR_OP1 (2 bits), ADDR_OP2 (2 bits), WE (1 bit), Clock | A (8 bits), B (8 bits)
 
 **Test & Verification**
-- ADDR_OP1=01 (R1), ADDR_OP2=00 (R0) → A=0x05, B=0x00 ✓
+- ADDR_OP1=01 (R1), ADDR_OP2=00 (R0) —> A=0x05, B=0x00 
 
 ---
 
@@ -145,8 +145,8 @@ The externally exposed control signals are: OP (2 bits), addresses of the two op
 
 **Test & Verification**
 - Cycle 1: Load R1=5 via external multiplexer
-- Cycle 2: ADD R2 ← R1+R0, OP=00 → result 5 stored in R2
-- XOR: OP=11, ADDR_OP1=01, ADDR_OP2=10 → 5 XOR 5 = 0 → R3=0 ✓
+- Cycle 2: ADD R2 <— R1+R0, OP=00 —> result 5 stored in R2
+- XOR: OP=11, ADDR_OP1=01, ADDR_OP2=10 —> 5 XOR 5 = 0 —> R3=0 
 
 ---
 
@@ -178,18 +178,18 @@ The Program Counter is an 8-bit register that acts as a counter: on each rising 
 - **Interface:** Clock (1 bit), Reset (1 bit) | PC (8 bits, current ROM address)
 
 **Test & Verification**
-- Reset=1 → PC = 0x00 immediately ✓
-- Clock ×5 → PC: 0x00 → 0x01 → 0x02 → 0x03 → 0x04 → 0x05 ✓
+- Reset=1 —> PC = 0x00 immediately 
+- Clock ×5 —> PC: 0x00 —> 0x01 —> 0x02 —> 0x03 —> 0x04 —> 0x05 
 
 ### 6.3 Decodage_Instruction — Combinational Decoder
 The decoder receives the 14 bits of an instruction read from ROM and directly generates all the control signals needed by the processing unit — no micro-program, no control ROM. It is a combinational circuit made of splitters, NOT gates, AND gates, and a constant.
 
 Field extraction is done by splitters applied to the 14-bit bus:
-- Bit 13 → MODE (immediate or register-to-register)
-- Bits 12-11 → OP (ALU operation, 2 bits)
-- Bits 10-9 → ADDR_RES (destination register, 2 bits)
-- Bits 8-1 → DATA or ADDR_OP1+OP2 (depending on MODE)
-- Bit 0 → WE (write enable)
+- Bit 13 —> MODE (immediate or register-to-register)
+- Bits 12-11 —> OP (ALU operation, 2 bits)
+- Bits 10-9 —> ADDR_RES (destination register, 2 bits)
+- Bits 8-1 —> DATA or ADDR_OP1+OP2 (depending on MODE)
+- Bit 0 —> WE (write enable)
 
 In immediate mode (MODE=1), the 8-bit DATA directly goes to the register file's E input. In register mode (MODE=0), bits 6-5 and 2-1 provide ADDR_OP1 and ADDR_OP2 respectively.
 
@@ -197,8 +197,8 @@ In immediate mode (MODE=1), the 8-bit DATA directly goes to the register file's 
 - **Interface (outputs):** OP (2 bits), ADDR_RES (2 bits), ADDR_OP1 (2 bits), ADDR_OP2 (2 bits), WE (1 bit), DATA (8 bits), MODE (1 bit)
 
 **Test & Verification**
-- Instruction=0x220B → MODE=1, ADDR_RES=01(R1), DATA=0x05, WE=1 → R1 will receive 5 ✓
-- Instruction=0x0421 → MODE=0, OP=00(ADD), ADDR_RES=10(R2), ADDR_OP1=01(R1), ADDR_OP2=00(R0), WE=1 ✓
+- Instruction=0x220B —> MODE=1, ADDR_RES=01(R1), DATA=0x05, WE=1 —> R1 will receive 5 ✓
+- Instruction=0x0421 —> MODE=0, OP=00(ADD), ADDR_RES=10(R2), ADDR_OP1=01(R1), ADDR_OP2=00(R0), WE=1 ✓
 
 ### 6.4 Etape7_ROM — Complete Processor with ROM
 This circuit is the first fully functional complete processor: it integrates the processing unit (UAL_ET_BANC), the instruction decoder (DECODAGE_INSTRUCTION), the ROM, the program counter (Pointeur_Programme), and the data bus multiplexing logic.
@@ -212,12 +212,12 @@ The execution flow of an instruction is:
 
 **Test & Verification**  
 ROM program: 220B 0421 1E25 0847 1205
-- Cycle 0 (PC=0x00): R1 ← 5
-- Cycle 1 (PC=0x01): R2 ← R1+R0 = 5+0 = 5
-- Cycle 2 (PC=0x02): R3 ← R1 XOR R2 = 5 XOR 5 = 0
-- Cycle 3 (PC=0x03): R0 ← R2 AND R3 = 5 AND 0 = 0
-- Cycle 4 (PC=0x04): R1 ← R0 OR R2 = 0 OR 5 = 5
-- **Final results: R0=0, R1=5, R2=5, R3=0** ✓
+- Cycle 0 (PC=0x00): R1 <— 5
+- Cycle 1 (PC=0x01): R2 <— R1+R0 = 5+0 = 5
+- Cycle 2 (PC=0x02): R3 <— R1 XOR R2 = 5 XOR 5 = 0
+- Cycle 3 (PC=0x03): R0 <— R2 AND R3 = 5 AND 0 = 0
+- Cycle 4 (PC=0x04): R1 <— R0 OR R2 = 0 OR 5 = 5
+- **Final results: R0=0, R1=5, R2=5, R3=0** 
 
 ---
 
@@ -233,9 +233,9 @@ The three new supported instructions are:
 The ETAPE8_RAM circuit integrates: the program ROM (unchanged), the data RAM, the PC, the (extended) decoder with memory access type bits, and two multiplexers. The first multiplexer selects the data source for writing into the register file (ALU result or RAM read). The second multiplexer selects the RAM address.
 
 **Test & Verification**
-- STORE @0x02, R1: R1's value written to mem[0x02] → RAM[0x02] = 0x05 if R1=5 ✓
-- LOAD R3, @0x02: R3 ← mem[0x02] = 0x05 ✓
-- LOAD R0, 0x12: R0 ← 0x12 (decimal 18) directly ✓
+- STORE @0x02, R1: R1's value written to mem[0x02] —> RAM[0x02] = 0x05 if R1=5 
+- LOAD R3, @0x02: R3 <— mem[0x02] = 0x05 
+- LOAD R0, 0x12: R0 <— 0x12 (decimal 18) directly 
 
 ---
 
@@ -249,9 +249,9 @@ A JUMP control signal (1 bit) selects the multiplexer input. When JUMP=0, the PC
 - **Interface:** Clock, Reset, JUMP_ADDR (8 bits), JUMP (1 bit) | PC (8 bits)
 
 **Test & Verification**
-- JUMP=0: normal counter behavior, PC++ ✓
-- JUMP=1, JUMP_ADDR=0x00: PC ← 0x00 (return to program start) ✓
-- JUMP=1, JUMP_ADDR=0x03: PC ← 0x03 (direct jump to address 3) ✓
+- JUMP=0: normal counter behavior, PC++ 
+- JUMP=1, JUMP_ADDR=0x00: PC <— 0x00 (return to program start) 
+- JUMP=1, JUMP_ADDR=0x03: PC <— 0x03 (direct jump to address 3) 
 
 ### 8.2 Decodage_Instruction_JUMP
 This decoder incorporates all of DECODAGE_INSTRUCTION and adds JUMP type handling. An additional splitter extracts the instruction type bits. Additional combinational AND/NOT logic detects JUMP and generates the JUMP signal sent to POINTEUR_PROGRAMME_JMP, as well as the target address extracted from the variable field bits. The JUMP bit replaces the padding bit.
@@ -273,11 +273,11 @@ The behavior during a cycle with JUMP:
 5. On the next cycle, execution resumes at the new address.
 
 **Test & Verification**  
-Program: 220B (R1←5), 0421 (R2←R1+R0), JUMP 0x00
+Program: 220B (R1<—5), 0421 (R2<—R1+R0), JUMP 0x00
 - Cycle 0: R1=5
 - Cycle 1: R2=5
-- Cycle 2: JUMP → PC ← 0x00 (infinite loop)
-- Cycle 3: R1 reloaded to 5 (loop verified over multiple cycles) ✓
+- Cycle 2: JUMP —> PC <— 0x00 (infinite loop)
+- Cycle 3: R1 reloaded to 5 (loop verified over multiple cycles) 
 
 ---
 
